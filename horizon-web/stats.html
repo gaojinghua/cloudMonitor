@@ -1,0 +1,186 @@
+{% load i18n %}
+{% load url from future %}
+
+<div id="samples_url" url="{% url "horizon:project:instances:samples" %}"></div>
+<div id="ceilometer-stats">
+  <form class="form-horizontal"
+        id="linechart_general_form">
+
+    <div class="control-group">
+      <label for="meter" class="control-label">{% trans "Metric" %}:&nbsp;</label>
+      <div class="controls line_chart_time_picker">
+        <select data-line-chart-command="select_box_change"
+                name="meter" id="meter" class="span2 example">
+            
+            <optgroup label='{% trans "Network" %}'>
+                <option title="net bytes sent(B)"  value="net_bytes_sent" data-unit="B">
+                    net_bytes_sent         
+                </option>
+
+                <option title="net bytes recv(B)"  value="net_bytes_recv" data-unit="B">
+                    net_bytes_recv
+                </option>
+
+                <option title="net sent bps(B/s)"  value="net_sent_bps" data-unit="B/s">
+                    net_sent_bps
+                </option>
+
+                <option title="net recv bps(B/s)"  value="net_recv_bps" data-unit="B/s">
+                    net_recv_bps
+                </option>
+
+                <option title="net error out(B)"  value="net_error_out" data-unit="B">
+                    net_error_out
+                </option>
+
+                <option title="net error in(B)"  value="net_error_in" data-unit="B">
+                    net_error_in
+                </option>
+            </optgroup>
+            
+            <optgroup label='{% trans "Memory" %}'>
+                <option title="memory total(MB)"  value="mem_total" data-unit="MB">
+                    mem_total
+                </option>
+
+                <option title="memory percent(%)"  value="mem_util" data-unit="%">
+                    mem_util
+                </option>
+            </optgroup>
+
+            <optgroup label='{% trans "Disk" %}'>
+                <option title="disk read bytes(B)"  value="disk_total_read_bytes" data-unit="B">
+                    disk_total_read_bytes
+                </option>
+
+                <option title="disk write bytes(B)"  value="disk_total_write_bytes" data-unit="B">
+                    disk_total_write_bytes
+                </option>
+
+                <option title="disk read bps(B/s)"  value="disk_read_bps" data-unit="B/s">
+                    disk_read_bps
+                </option>
+
+                <option title="disk write bps(B/s)"  value="disk_write_bps" data-unit="B/s">
+                    disk_write_bps
+                </option>
+            </optgroup>
+
+            <optgroup label='{% trans "CPU" %}'>
+                <option title="cpu percent(%)"  value="cpu_percent" data-unit="%" selected="selected">
+                    cpu_percent
+                </option>
+            </optgroup>
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div id="div_container" style="height: 400px; min-width: 310px"></div>
+
+<script type="text/javascript">
+
+interVal = setInterval( function(){ var i = 0; }, 15000);
+
+$(document).ready(function(){
+    var tokens = window.location.href.split('/');
+    var instance_id = tokens[tokens.length-2];
+    var url_init = '/horizon/project/instances/samples?meter='+$("#meter").val()+"&instance_id="+instance_id;
+    $.getJSON(url_init + "&isfirst=1" , function(ret){
+        Generate(ret, url_init);
+    });
+    $("#meter").change(function(){
+        var url = '/horizon/project/instances/samples?meter='+$("#meter").val()+"&instance_id="+instance_id;
+        $.getJSON(url + "&isfirst=1" , function(re){
+            Generate(re, url);
+        });
+    }) ;
+});
+
+</script>
+
+<script type="text/javascript">
+
+function GetLastData(url){
+    var data = 0;
+    $.ajaxSetup({ async : false}); 
+    $.getJSON(url + "&isfirst=0", function(ret){
+        data = ret;
+    });
+    return data;
+};
+
+function Generate(inputData, url) {
+
+    Highcharts.setOptions({
+        global : {
+            useUTC : false
+        }
+    });
+
+    var chart;
+    $('#div_container').highcharts('StockChart', {
+        chart : {
+            events : {
+                load : function() {
+                    var series = this.series[0];
+		            window.clearInterval(interVal);
+                    interVal = setInterval(function() {
+                        var temp = GetLastData(url);
+                        series.addPoint([temp[0], temp[1]], true, true);
+                    },15000);
+                }
+            }
+        },
+
+
+    credits: {
+        enabled: false
+    },
+    
+    yAxis: {
+        title: {
+            text: document.getElementById("meter").options[document.getElementById("meter").selectedIndex].title,
+            offset: 40,
+            margin: 50
+        }
+    },
+
+    rangeSelector: {
+        buttons:[{  
+            count: 1,
+            type: 'minute',
+            text: '1Min'
+        }, {
+            count: 5,
+            type: 'minute',
+            text: '5Min'
+        }, {
+            count: 1,
+            type: 'hour',
+            text: '1H'
+        }, {
+            count: 1,
+            type: 'day',
+            text: '1D'
+        },{
+            type: 'all',
+            text: 'All'
+        }],
+        inputEnabled: true,
+        selected: 0
+    },
+
+    title : {
+        text : 'Instances Statistics'
+    },
+
+    series : [{
+        name : 'Live random data',
+        data : inputData
+    }]
+});
+
+};
+</script>
